@@ -1,0 +1,13 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.Shopy" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <item name="colorPrimary">@color/myPrimary</item>
+        <item name="colorPrimaryVariant">@color/myPrimaryVariant</item>
+        <item name="colorOnPrimary">@color/myOnPrimary</item>
+        <item name="colorSecondary">@color/mySecondary</item>
+        <item name="colorOnSecondary">@color/myOnSecondary</item>
+    </style>
+
+    <style name="Theme.Shopy" parent="Base.Theme.Shopy" />
+</resources>
