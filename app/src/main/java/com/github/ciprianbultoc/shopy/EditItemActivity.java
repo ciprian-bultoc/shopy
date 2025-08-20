@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -22,6 +23,7 @@ public class EditItemActivity extends AppCompatActivity {
     private AppDatabase db;
     private Item item;
     private AutoCompleteTextView autoCompleteCategory;
+    private TextView headerText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +32,7 @@ public class EditItemActivity extends AppCompatActivity {
 
         db = AppDatabase.getInstance(this);
 
+        headerText = findViewById(R.id.headerText);
         autoCompleteCategory = findViewById(R.id.autoCompleteCategory);
         Button buttonSave = findViewById(R.id.buttonSave);
 
@@ -39,19 +42,25 @@ public class EditItemActivity extends AppCompatActivity {
         item = db.itemDao().getById(itemId);
         if (item == null) finish();
 
+        // set header text: "Shopping Item <item name>"
+        headerText.setText("Shopping Item: " + item.name);
+
         setupCategoryAutocomplete();
 
         buttonSave.setOnClickListener(v -> {
-            // find categoryId by name
             String categoryName = autoCompleteCategory.getText().toString();
             Category category = db.categoryDao().getByName(categoryName);
+
             if (category != null) {
                 item.categoryId = category.id;
                 db.itemDao().update(item);
 
+                // Save preset for quick future entry
                 ItemPreset preset = new ItemPreset(item.name, category.id, item.marketId);
                 db.itemPresetDao().insert(preset);
             }
+            // send result back
+            setResult(RESULT_OK);
             finish();
         });
     }
@@ -59,7 +68,9 @@ public class EditItemActivity extends AppCompatActivity {
     private void setupCategoryAutocomplete() {
         List<Category> categories = db.categoryDao().getAllCategories();
         List<String> categoryNames = new ArrayList<>();
-        for (Category c : categories) categoryNames.add(c.name);
+        for (Category c : categories) {
+            categoryNames.add(c.name);
+        }
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 this,
@@ -68,12 +79,15 @@ public class EditItemActivity extends AppCompatActivity {
         );
         autoCompleteCategory.setAdapter(adapter);
 
+        // Show dropdown when clicked
         autoCompleteCategory.setOnClickListener(v -> autoCompleteCategory.showDropDown());
 
-        // preselect current category
+        // Preselect current category if exists
         if (item.categoryId != null) {
             Category current = db.categoryDao().getById(item.categoryId);
-            if (current != null) autoCompleteCategory.setText(current.name, false);
+            if (current != null) {
+                autoCompleteCategory.setText(current.name, false);
+            }
         }
     }
 }

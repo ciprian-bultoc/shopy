@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -5,14 +6,32 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <AutoCompleteTextView
-        android:id="@+id/autoCompleteCategory"
+    <!-- Header -->
+    <TextView
+        android:id="@+id/headerText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Select category"
-        android:imeOptions="actionDone"
-        android:inputType="text" />
+        android:paddingBottom="16dp"
+        android:text="Shopping Item"
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
+    <!-- Category dropdown with Material style -->
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Category">
+
+        <AutoCompleteTextView
+            android:id="@+id/autoCompleteCategory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:focusable="false"
+            android:inputType="none" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Save button -->
     <Button
         android:id="@+id/buttonSave"
         android:layout_width="wrap_content"

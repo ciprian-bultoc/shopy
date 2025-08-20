@@ -31,9 +31,9 @@ public class Item {
 
     @ColumnInfo(name = "marketId")
     public Integer marketId;
-    public boolean checked;
+    public Boolean checked;
 
-    public Item(String name, Integer categoryId, Integer marketId, boolean checked) {
+    public Item(String name, Integer categoryId, Integer marketId, Boolean checked) {
         this.name = name;
         this.categoryId = categoryId;
         this.marketId = marketId;

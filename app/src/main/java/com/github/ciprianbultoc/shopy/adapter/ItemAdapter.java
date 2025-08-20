@@ -11,7 +11,11 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.ciprianbultoc.shopy.R;
+import com.github.ciprianbultoc.shopy.constants.Constants;
 import com.github.ciprianbultoc.shopy.db.AppDatabase;
+import com.github.ciprianbultoc.shopy.dto.DisplayedRow;
+import com.github.ciprianbultoc.shopy.dto.DisplayedRows;
+import com.github.ciprianbultoc.shopy.entity.Category;
 import com.github.ciprianbultoc.shopy.entity.Item;
 
 import java.util.ArrayList;
@@ -21,84 +25,81 @@ import java.util.Map;
 
 public class ItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
-    private static final int TYPE_CATEGORY_HEADER = 0;
-    private static final int TYPE_ITEM = 1;
-    private static final int TYPE_CHECKED_HEADER = 2;
-
     private final AppDatabase db;
-    private final List<Object> displayList = new ArrayList<>();
     private final OnItemClick listener;
 
-    private boolean checkedCollapsed = true;
-
-    private List<Item> uncheckedItems = new ArrayList<>();
-    private List<Item> checkedItems = new ArrayList<>();
+    private DisplayedRows rows;
 
     public ItemAdapter(List<Item> items, AppDatabase db, OnItemClick listener) {
         this.db = db;
         this.listener = listener;
-        setItems(items);
+        this.rows = new DisplayedRows();
+        setDisplayedRows(items);
     }
 
-    public void setItems(List<Item> items) {
-        displayList.clear();
+    public void setDisplayedRows(List<Item> items) {
+        rows.getAllRows().clear();
+        rows.getUnchecked().clear();
+        rows.getChecked().clear();
 
-        // Split into checked and unchecked
-        uncheckedItems = new ArrayList<>();
-        checkedItems = new ArrayList<>();
-        for (Item item : items) {
-            if (item.checked) checkedItems.add(item);
-            else uncheckedItems.add(item);
-        }
+        // Split items
+        items.forEach(item -> {
+            DisplayedRow row = new DisplayedRow(item);
+            if (item.checked) {
+                rows.getChecked().add(row);
+            } else {
+                rows.getUnchecked().add(row);
+            }
+        });
 
         // Group unchecked items by category
-        Map<Integer, List<Item>> grouped = new HashMap<>();
-        for (Item item : uncheckedItems) {
-            grouped.computeIfAbsent(item.categoryId, k -> new ArrayList<>()).add(item);
+        Map<Integer, List<DisplayedRow>> grouped = new HashMap<>();
+        for (DisplayedRow row : rows.getUnchecked()) {
+            grouped.computeIfAbsent(row.getItem().categoryId, k -> new ArrayList<>()).add(row);
         }
 
+        List<Category> categories = db.categoryDao().getAllCategories();
+
         // Add category headers + items
-        for (Map.Entry<Integer, List<Item>> entry : grouped.entrySet()) {
-            String categoryName = getCategoryName(entry.getKey());
-            displayList.add(categoryName); // header
-            displayList.addAll(entry.getValue());
+        for (Map.Entry<Integer, List<DisplayedRow>> entry : grouped.entrySet()) {
+            String categoryName = getCategoryName(entry.getKey(), categories);
+            rows.getAllRows().add(new DisplayedRow(categoryName, Constants.DisplayedRowType.HEADER_ITEM_CATEGORY));
+            rows.getAllRows().addAll(entry.getValue());
         }
 
         // Add checked section if any
-        if (!checkedItems.isEmpty()) {
-            displayList.add(TYPE_CHECKED_HEADER); // marker
-            if (!checkedCollapsed) {
-                displayList.addAll(checkedItems);
+        if (!rows.getChecked().isEmpty()) {
+            rows.getAllRows().add(new DisplayedRow("Checked", Constants.DisplayedRowType.HEADER_CHECKED_ITEM));
+            if (!rows.isCollapsedChecked()) {
+                rows.getAllRows().addAll(rows.getChecked());
             }
         }
 
         notifyDataSetChanged();
     }
 
-    private String getCategoryName(Integer categoryId) {
-        if (categoryId == null) return "None";
-        String name = db.categoryDao().getById(categoryId).name;
-        return name != null ? name : "None";
+    private String getCategoryName(Integer categoryId, List<Category> categories) {
+        if (categoryId == null) {
+            return "None";
+        }
+        Category category = categories.stream().filter(cat -> cat.id == categoryId).findFirst().orElse(null);
+        return category != null ? category.name : "None";
     }
 
     @Override
     public int getItemViewType(int position) {
-        Object obj = displayList.get(position);
-        if (obj instanceof String) return TYPE_CATEGORY_HEADER;
-        else if (obj instanceof Integer && obj.equals(TYPE_CHECKED_HEADER))
-            return TYPE_CHECKED_HEADER;
-        else return TYPE_ITEM;
+        return this.rows.getAllRows().get(position).getType().getItemViewType();
     }
 
     @Override
     public int getItemCount() {
-        return displayList.size();
+        return rows.getAllRows().size();
     }
 
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        if (viewType == TYPE_CATEGORY_HEADER || viewType == TYPE_CHECKED_HEADER) {
+        if (viewType == Constants.DisplayedRowType.HEADER_ITEM_CATEGORY.getItemViewType() || viewType == Constants.DisplayedRowType.HEADER_CHECKED_ITEM.getItemViewType()) {
             View view = LayoutInflater.from(parent.getContext())
                     .inflate(R.layout.checked_item_header, parent, false);
             return new HeaderViewHolder(view);
@@ -112,40 +113,30 @@ public class ItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         int viewType = getItemViewType(position);
-        if (viewType == TYPE_CATEGORY_HEADER) {
-            ((HeaderViewHolder) holder).bind((String) displayList.get(position));
-        } else if (viewType == TYPE_CHECKED_HEADER) {
-            ((HeaderViewHolder) holder).bind("Checked", checkedCollapsed, v -> {
-                checkedCollapsed = !checkedCollapsed;
-                setItems(db.itemDao().getAllItems());
+        if (viewType == Constants.DisplayedRowType.HEADER_ITEM_CATEGORY.getItemViewType()) {
+            ((HeaderViewHolder) holder).bind(rows.getAllRows().get(position).getText());
+        } else if (viewType == Constants.DisplayedRowType.HEADER_CHECKED_ITEM.getItemViewType()) {
+            ((HeaderViewHolder) holder).bind("Checked", rows.isCollapsedChecked(), v -> {
+                rows.setCollapsedChecked(!rows.isCollapsedChecked());
+                setDisplayedRows(db.itemDao().getAllItems());
             });
         } else {
-            ((ItemViewHolder) holder).bind((Item) displayList.get(position));
+            ((ItemViewHolder) holder).bind(rows.getAllRows().get(position));
         }
     }
 
-    public Item getItemByPosition(int position) {
-        if (position < uncheckedItems.size()) {
-            return uncheckedItems.get(position);
-        } else if (!checkedItems.isEmpty()) {
-            int checkedIndex = position - uncheckedItems.size() - 1; // -1 if header is counted
-            if (checkedIndex >= 0 && checkedIndex < checkedItems.size()) {
-                return checkedItems.get(checkedIndex);
-            }
-        }
-        return null;
+    public DisplayedRow getRowByPosition(int position) {
+        return rows.getAllRows().get(position);
     }
 
-    public void removeItem(Item item) {
-        // Remove from uncheckedItems or checkedItems depending on checked state
-        if (item.checked) {
-            checkedItems.remove(item);
+    public void removeItem(DisplayedRow row) {
+        if (Boolean.TRUE.equals(row.getItem().checked)) {
+            rows.getChecked().remove(row);
         } else {
-            uncheckedItems.remove(item);
+            rows.getUnchecked().remove(row);
         }
 
-        // Delete from DB
-        db.itemDao().delete(item);
+        db.itemDao().delete(row.getItem());
 
         notifyDataSetChanged();
     }
@@ -155,7 +146,7 @@ public class ItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     // ViewHolders
-    static class HeaderViewHolder extends RecyclerView.ViewHolder {
+    public static class HeaderViewHolder extends RecyclerView.ViewHolder {
         TextView headerText;
 
         HeaderViewHolder(View itemView) {
@@ -191,10 +182,10 @@ public class ItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
                 int pos = getAdapterPosition();
                 if (pos != RecyclerView.NO_POSITION) {
-                    Item item = (Item) displayList.get(pos);
+                    Item item = rows.getAllRows().get(pos).getItem();
                     item.checked = !item.checked;
                     db.itemDao().update(item);
-                    setItems(db.itemDao().getAllItems());
+                    setDisplayedRows(db.itemDao().getAllItems());
 
                     // Call MainActivity callback
                     if (listener != null) listener.onItemClick(item);
@@ -202,9 +193,9 @@ public class ItemAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             });
         }
 
-        void bind(Item item) {
-            nameView.setText(item.name);
-            if (item.checked) {
+        void bind(DisplayedRow row) {
+            nameView.setText(row.getText());
+            if (row.getItem().checked) {
                 nameView.setTypeface(null, Typeface.ITALIC);
                 nameView.setTextColor(Color.GRAY);
             } else {

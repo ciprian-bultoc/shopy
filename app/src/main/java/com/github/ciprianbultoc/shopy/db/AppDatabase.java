@@ -15,7 +15,7 @@ import com.github.ciprianbultoc.shopy.entity.Item;
 import com.github.ciprianbultoc.shopy.entity.ItemPreset;
 import com.github.ciprianbultoc.shopy.entity.Market;
 
-@Database(entities = {Item.class, ItemPreset.class, Category.class, Market.class}, version = 1, exportSchema = false)
+@Database(entities = {Item.class, ItemPreset.class, Category.class, Market.class}, version = 2, exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase {
     private static AppDatabase INSTANCE;
 

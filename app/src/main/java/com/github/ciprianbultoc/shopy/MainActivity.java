@@ -16,6 +16,8 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -25,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.github.ciprianbultoc.shopy.adapter.ItemAdapter;
 import com.github.ciprianbultoc.shopy.db.AppDatabase;
+import com.github.ciprianbultoc.shopy.dto.DisplayedRow;
 import com.github.ciprianbultoc.shopy.entity.Item;
 import com.github.ciprianbultoc.shopy.entity.ItemPreset;
 import com.google.android.material.appbar.MaterialToolbar;
@@ -38,6 +41,13 @@ public class MainActivity extends AppCompatActivity {
     private AutoCompleteTextView autoCompleteItem;
     private RecyclerView recyclerView;
     private ItemAdapter adapter;
+    // Define launcher
+    private final ActivityResultLauncher<Intent> editItemLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK) {
+                    refreshList();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,18 +81,25 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+
+                if (viewHolder instanceof ItemAdapter.HeaderViewHolder) {
+                    // ignore headers
+                    adapter.notifyItemChanged(viewHolder.getAdapterPosition());
+                    return;
+                }
+
                 int pos = viewHolder.getAdapterPosition();
-                Item item = adapter.getItemByPosition(pos);
+                DisplayedRow row = adapter.getRowByPosition(pos);
 
                 if (direction == ItemTouchHelper.LEFT) {
                     // Delete
-                    adapter.removeItem(item);
+                    adapter.removeItem(row);
                 } else if (direction == ItemTouchHelper.RIGHT) {
                     // Edit
                     adapter.notifyItemChanged(pos); // reset swipe state
                     Intent intent = new Intent(MainActivity.this, EditItemActivity.class);
-                    intent.putExtra(EditItemActivity.EXTRA_ITEM_ID, item.id);
-                    startActivity(intent);
+                    intent.putExtra(EditItemActivity.EXTRA_ITEM_ID, row.getItem().id);
+                    editItemLauncher.launch(intent);
                 }
             }
 
@@ -190,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
             db.itemDao().insert(newItem);
 
             // Refresh RecyclerView
-            adapter.setItems(db.itemDao().getAllItems());
+            adapter.setDisplayedRows(db.itemDao().getAllItems());
 
             // Clear input
             autoCompleteItem.setText("");
@@ -214,13 +231,13 @@ public class MainActivity extends AppCompatActivity {
         Item newItem = new Item(name, categoryId, marketId, false);
         db.itemDao().insert(newItem);
 
-        adapter.setItems(db.itemDao().getAllItems());
+        adapter.setDisplayedRows(db.itemDao().getAllItems());
         autoCompleteItem.setText("");
     }
 
     // Callback when clicking on an item in RecyclerView
     private void onItemClicked(Item item) {
-       
+
     }
 
     @Override
@@ -238,5 +255,10 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void refreshList() {
+        List<Item> items = db.itemDao().getAllItems();
+        adapter.setDisplayedRows(items);
     }
 }
