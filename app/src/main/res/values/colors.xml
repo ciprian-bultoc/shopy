@@ -11,6 +11,7 @@
     <!-- Background -->
     <color name="background">#121212</color>
     <color name="surface">#1E1E1E</color>
+    <color name="colorSurfaceBright">#2F1D49</color>
 
     <!-- Primary / Accent -->
     <color name="primary">#5F06C5</color>       <!-- A soft purple accent -->

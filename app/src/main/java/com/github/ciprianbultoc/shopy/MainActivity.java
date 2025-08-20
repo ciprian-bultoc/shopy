@@ -1,11 +1,16 @@
 package com.github.ciprianbultoc.shopy;
 
 import android.content.Intent;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -13,6 +18,8 @@ import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -46,6 +53,81 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new ItemAdapter(db.itemDao().getAllItems(), db, this::onItemClicked);
         recyclerView.setAdapter(adapter);
+
+        ItemTouchHelper.SimpleCallback swipeCallback = new ItemTouchHelper.SimpleCallback(0,
+                ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+
+            private final Drawable deleteIcon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_delete);
+            private final Drawable editIcon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_edit);
+            private final ColorDrawable redBackground = new ColorDrawable(Color.RED);
+            private final ColorDrawable blueBackground = new ColorDrawable(Color.BLUE);
+
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView,
+                                  @NonNull RecyclerView.ViewHolder viewHolder,
+                                  @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                int pos = viewHolder.getAdapterPosition();
+                Item item = adapter.getItemByPosition(pos);
+
+                if (direction == ItemTouchHelper.LEFT) {
+                    // Delete
+                    adapter.removeItem(item);
+                } else if (direction == ItemTouchHelper.RIGHT) {
+                    // Edit
+                    adapter.notifyItemChanged(pos); // reset swipe state
+                    Intent intent = new Intent(MainActivity.this, EditItemActivity.class);
+                    intent.putExtra(EditItemActivity.EXTRA_ITEM_ID, item.id);
+                    startActivity(intent);
+                }
+            }
+
+            @Override
+            public void onChildDraw(@NonNull Canvas c, @NonNull RecyclerView recyclerView,
+                                    @NonNull RecyclerView.ViewHolder viewHolder, float dX, float dY,
+                                    int actionState, boolean isCurrentlyActive) {
+
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
+
+                View itemView = viewHolder.itemView;
+                int iconMargin = (itemView.getHeight() - (deleteIcon != null ? deleteIcon.getIntrinsicHeight() : 0)) / 2;
+
+                if (dX > 0) { // swipe right → edit
+                    blueBackground.setBounds(itemView.getLeft(), itemView.getTop(),
+                            itemView.getLeft() + ((int) dX), itemView.getBottom());
+                    blueBackground.draw(c);
+
+                    if (editIcon != null) {
+                        int iconTop = itemView.getTop() + (itemView.getHeight() - editIcon.getIntrinsicHeight()) / 2;
+                        int iconLeft = itemView.getLeft() + iconMargin;
+                        int iconRight = iconLeft + editIcon.getIntrinsicWidth();
+                        int iconBottom = iconTop + editIcon.getIntrinsicHeight();
+                        editIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                        editIcon.draw(c);
+                    }
+
+                } else if (dX < 0) { // swipe left → delete
+                    redBackground.setBounds(itemView.getRight() + ((int) dX), itemView.getTop(),
+                            itemView.getRight(), itemView.getBottom());
+                    redBackground.draw(c);
+
+                    if (deleteIcon != null) {
+                        int iconTop = itemView.getTop() + (itemView.getHeight() - deleteIcon.getIntrinsicHeight()) / 2;
+                        int iconRight = itemView.getRight() - iconMargin;
+                        int iconLeft = iconRight - deleteIcon.getIntrinsicWidth();
+                        int iconBottom = iconTop + deleteIcon.getIntrinsicHeight();
+                        deleteIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                        deleteIcon.draw(c);
+                    }
+                }
+            }
+        };
+
+        new ItemTouchHelper(swipeCallback).attachToRecyclerView(recyclerView);
 
         setupAutoComplete();
 
@@ -138,9 +220,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Callback when clicking on an item in RecyclerView
     private void onItemClicked(Item item) {
-        Intent intent = new Intent(this, EditItemActivity.class);
-        intent.putExtra(EditItemActivity.EXTRA_ITEM_ID, item.id);
-        startActivity(intent);
+       
     }
 
     @Override
